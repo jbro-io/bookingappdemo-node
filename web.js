@@ -111,21 +111,21 @@ function authorize()
   if(refreshToken)
   {
     oa.getOAuthAccessToken(refreshToken, {grant_type:'refresh_token', client_id: clientId, client_secret: clientSecret}, function(err, access_token, refresh_token, res){
-      
+
       //lookup settings from database
       connect().then(function(){
         database.collection(mongoCollectionName).findOne({google_user_id: googleUserId}, function(findError, settings){
-          
+
           var expiresIn = parseInt(res.expires_in);
           var accessTokenExpiration = new Date().getTime() + (expiresIn * 1000);
 
           //add refresh token if it is returned
           if(refresh_token != undefined) settings.google_refresh_token = refresh_token;
-          
+
           //update access token in database
           settings.google_access_token = access_token;
           settings.google_access_token_expiration = accessTokenExpiration;
-          
+
           database.collection(mongoCollectionName).save(settings);
 
           console.log('-- access token updated:', access_token);
@@ -133,7 +133,7 @@ function authorize()
           deferred.resolve(access_token);
         });
       });
-        
+
     })
   }
   else
@@ -153,7 +153,7 @@ function getAccessToken()
 
     database.collection(mongoCollectionName).findOne({google_user_id: googleUserId}, function(findError, settings){
       console.log('GOOGLE SETTINGS RESPONSE:', settings, findError);
-      
+
       //check if access token is still valid
       var today = new Date();
       var currentTime = today.getTime();
@@ -178,7 +178,7 @@ function getAccessToken()
         });
       }
     });
-    
+
   }, function(error){
     deferred.reject(error);
   });
@@ -195,14 +195,6 @@ app.get('/', function(request, response) {
 });
 
 app.get('/authorize', function(request, response){
-
-  //only allow application to be authorized once
-  if(refreshToken)
-  {
-    response.send({error: 'Application is already authorized. Deauthorization required.'});
-  }
-  else
-  {
     oa = new oauth.OAuth2(clientId,
             clientSecret,
             "https://accounts.google.com/o",
@@ -210,7 +202,6 @@ app.get('/authorize', function(request, response){
             "/oauth2/token");
 
     response.redirect(oa.getAuthorizeUrl({scope:scopes, response_type:'code', redirect_uri:baseUrl+'/callback', access_type:'offline',user_id:googleUserId}));
-  }
 });
 
 app.get('/deauthorize', function(request, response){
@@ -232,23 +223,23 @@ app.get('/callback', function(request, response){
           database.collection(mongoCollectionName).findOne({google_user_id: googleUserId}, function(findError, settings){
             console.log('--writing access token to database--');
             var accessTokenExpiration = new Date().getTime() + (3500 * 1000);
-            
+
             //update access token in database
             settings.google_access_token = access_token;
             settings.google_access_token_expiration = accessTokenExpiration;
 
             //set google refresh token if it is returned
             if(refresh_token != undefined) settings.google_refresh_token = refresh_token;
-            
+
             database.collection(mongoCollectionName).save(settings);
-            
+
             response.writeHead(200, {"Content-Type": "application/javascript"});
             response.write('refresh token: ' + refresh_token + '\n');
             response.write(JSON.stringify(res, null, '\t'));
             response.end();
           });
         });
-          
+
       }
 
     });
